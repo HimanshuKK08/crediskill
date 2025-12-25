@@ -5,7 +5,7 @@ const bcrypt = require("bcrypt");
 const passport = require('./config/passport');
 var session = require('express-session')
 var MongoStore = require('connect-mongodb-session')(session);
-
+const userDataModel = require('./Models/userDataModel')
 const app = express(); 
 
 /* -------------------- MIDDLEWARE -------------------- */
@@ -30,19 +30,76 @@ app.use(session({
     maxAge: 10 * 60 * 1000,
   },
 }));
+function isLoggedIn(req, res, next) {
+  if (req.isAuthenticated()) return next();
+  res.status(401).json({ success: false, message: 'Unauthorized' });
+}
+
 
 app.use(passport.initialize());
 app.use(passport.session());
 /* -------------------- ROUTES -------------------- */
 
 app.post('/login',passport.authenticate('local'), (req, res, next) => {
-  res.status(200).json({
-    success: true, 
-    message: "Login Successfully"
-  })
-    
+    res.status(200).json({
+      success: true, 
+      message: "Login Successfully",
+    })
 });
 
+  
+app.get('/profile', isLoggedIn ,async (req,res)=>{
+  let userData = await userDataModel.findOne({ userId: req.user._id })
+  if (!userData) {
+    userData = await userDataModel.create({
+      userId: req.user._id,
+
+      username: req.user.username || '',
+      name: req.user.name || '',
+      bio: 'Please Enter About yourself here',
+
+      profilePhoto: 'https://api.dicebear.com/7.x/avataaars/svg',
+
+      links: {
+        email: req.user.email || '',
+        github: '',
+        linkedin: '',
+        portfolio: '',
+      },
+
+      skills: [],
+      projects: [],
+      growthData: [],
+    });
+  }
+  res.json({
+    success: true,
+    data: userData
+  });
+})
+
+app.put('/changedata', isLoggedIn, async (req, res) => {
+  const { bio, profilePhoto, links, skills, projects } = req.body;
+
+  const newData = await userDataModel.findOneAndUpdate(
+    { userId: req.user._id },
+    {
+      $set: {
+        bio,
+        profilePhoto,
+        links,
+        skills,
+        projects,
+      },
+    },
+    { new: true }
+  );
+
+  res.json({
+    success: true,
+    data: newData,
+  });
+});
 
 
 

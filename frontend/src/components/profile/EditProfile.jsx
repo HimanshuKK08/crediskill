@@ -26,11 +26,10 @@ const EditProfile = ({ userData, onSave, onCancel }) => {
   const addSkill = () => {
     if (newSkill.trim()) {
       const skill = {
-        id: Date.now(),
         name: newSkill,
         level: 'Beginner',
         score: 0,
-        lastTested: 'Not tested'
+        lastTested: null
       };
       setFormData(prev => ({
         ...prev,

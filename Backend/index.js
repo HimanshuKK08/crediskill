@@ -7,6 +7,8 @@ var session = require('express-session')
 var MongoStore = require('connect-mongodb-session')(session);
 const userDataModel = require('./Models/userDataModel')
 const app = express(); 
+const getRandomQuestions = require('./utils/getRandomQuestions');
+const Questions = require("./Models/Questions");
 
 /* -------------------- MIDDLEWARE -------------------- */
 const store = new MongoStore({
@@ -47,6 +49,12 @@ app.post('/login',passport.authenticate('local'), (req, res, next) => {
     })
 });
 
+function ensureAuthenticated(req, res, next) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.status(401).json({ success: false, message: "Unauthorized" });
+}
   
 app.get('/profile', isLoggedIn ,async (req,res)=>{
   let userData = await userDataModel.findOne({ userId: req.user._id })
@@ -131,8 +139,77 @@ app.post("/register", async (req, res) => {
   }
 });
 
+app.post("/api/test/start", async (req, res) => {
+  const { skillName } = req.body;
+  try {
+    const questions = await getRandomQuestions(skillName);
+    res.json({
+      success: true,
+      testId: Date.now(),
+      questions
+    });
+    
+  } catch (error) {
+    res.json({
+      success: false
+    })
+  }
 
+});
 
+app.post("/api/test/submit", async (req, res) => {
+  const { testId, answers, skillName } = req.body;
+  const questionIds = Object.keys(answers);
+  
+  try {
+    const promises = questionIds.map(questionId => 
+      Questions.findOne(
+        { _id: questionId },
+        { correctOptionIndex: 1, _id: 0 }  // projection
+      )
+    );
+    
+    // Step 2: Execute all queries in parallel
+    const correctOptions = await Promise.all(promises);
+    
+    // Step 3: Calculate score
+    let score = 0;
+    questionIds.forEach((questionId, index) => {
+      const correctOption = correctOptions[index];
+      if (answers[questionId] === correctOption.correctOptionIndex) {
+        score++;
+      }
+    });
+    const user = req.user;
+    const userData = await userDataModel.findOne({userId: user._id});
+    userData.skills.forEach((skill)=>{
+      if(skill.name == skillName){
+        skill.score = score;
+        skill.lastTested = Date.now();
+        skill.isTested = true;
+      }
+    })
+    await userData.save();
+    console.log('Final score:', score);
+    
+    res.json({
+      score,
+      success: true
+    });
+    
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to calculate score'
+    });
+  }
+});
+
+app.get('/demo', ensureAuthenticated ,(req,res)=>{
+   console.log(req.user);
+  
+})
 
 app.use((err, req, res, next) => {
   console.error("🔥 SERVER ERROR:", err);

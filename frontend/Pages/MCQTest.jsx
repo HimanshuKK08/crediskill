@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 const MCQTest = () => {
   const location = useLocation();
   const { questions, testId, skillName } = location.state;
@@ -16,6 +16,8 @@ const MCQTest = () => {
   const totalQuestions = questions.length;
   const isLastQuestion = currentIndex === totalQuestions - 1;
 
+
+  const navigate = useNavigate();
   // Handle option selection
   const handleOptionSelect = (optionIndex) => {
     setSelectedOption(optionIndex);
@@ -57,6 +59,7 @@ const MCQTest = () => {
         testId: testId,
         answers: finalAnswers,
         skillName,
+        totalQuestions
       })
     })
     .then(res => res.json())
@@ -69,17 +72,19 @@ const MCQTest = () => {
   };
 
   // Restart test
-  const handleRestart = () => {
+  const handleExit = () => {
     setCurrentIndex(0);
     setSelectedOption(null);
     setAnswers({});
     setIsCompleted(false);
     setScore(null);
+
+    navigate('/dashboard');
   };
 
   // Result screen
   if (isCompleted) {
-    const percentage = (score / totalQuestions) * 100;
+    const percentage = ((score / totalQuestions) * 100).toFixed(2);
     return (
       <div className="min-h-screen bg-gray-50 w-full flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
@@ -103,10 +108,10 @@ const MCQTest = () => {
           </div>
 
           <button
-            onClick={handleRestart}
+            onClick={handleExit}
             className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors"
           >
-            Retake Test
+            Back to Dashboard
           </button>
         </div>
       </div>

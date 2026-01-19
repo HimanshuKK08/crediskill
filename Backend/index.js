@@ -158,7 +158,7 @@ app.post("/api/test/start", async (req, res) => {
 });
 
 app.post("/api/test/submit", async (req, res) => {
-  const { testId, answers, skillName } = req.body;
+  const { testId, answers, skillName, totalQuestions } = req.body;
   const questionIds = Object.keys(answers);
   
   try {
@@ -180,11 +180,12 @@ app.post("/api/test/submit", async (req, res) => {
         score++;
       }
     });
+    let percentage = (score/totalQuestions)*100;
     const user = req.user;
     const userData = await userDataModel.findOne({userId: user._id});
     userData.skills.forEach((skill)=>{
       if(skill.name == skillName){
-        skill.score = score;
+        skill.score = percentage.toFixed(2);
         skill.lastTested = Date.now();
         skill.isTested = true;
       }
@@ -205,6 +206,19 @@ app.post("/api/test/submit", async (req, res) => {
     });
   }
 });
+
+app.post('/api/skill', async(req,res)=>{
+  const skills = await Questions.distinct("skill");
+  res.json(skills);
+})
+
+
+
+
+
+
+
+
 
 app.get('/demo', ensureAuthenticated ,(req,res)=>{
    console.log(req.user);

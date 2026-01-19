@@ -1,17 +1,118 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Plus, Trash2, X } from 'lucide-react';
 
 
 const EditProfile = ({ userData, onSave, onCancel }) => {
   const [formData, setFormData] = useState({ ...userData });
   const [newSkill, setNewSkill] = useState('');
+  const [skillArray, setskillArray] = useState([]);
   const [newProject, setNewProject] = useState({
     name: '',
     depthScore: 50,
     techStack: '',
     description: ''
   });
+  
+  // Autocomplete states
+  const [filteredSkills, setFilteredSkills] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const dropdownRef = useRef(null);
+  const inputRef = useRef(null);
 
+  useEffect(() => {
+  const fetchSkills = async () => {
+    try {
+      const res = await fetch('/api/skill', {
+        method: 'POST'
+      });
+      const data = await res.json();
+      setskillArray(data);
+    } catch (error) {
+      console.error('Error fetching skills:', error);
+    }
+  };
+  
+  fetchSkills();
+}, []);
+  // Filter skills based on input (case-insensitive)
+  useEffect(() => {
+    if (newSkill.trim() === '') {
+      setFilteredSkills([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    const filtered = skillArray.filter(skill =>
+      skill.toLowerCase().includes(newSkill.toLowerCase())
+    );
+
+    setFilteredSkills(filtered);
+    setShowDropdown(filtered.length > 0);
+    setSelectedIndex(-1);
+  }, [newSkill, skillArray]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target) &&
+        inputRef.current &&
+        !inputRef.current.contains(event.target)
+      ) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Handle skill selection from dropdown
+  const handleSelectSkill = (skill) => {
+    setNewSkill(skill);
+    setShowDropdown(false);
+    setSelectedIndex(-1);
+  };
+
+  // Handle keyboard navigation
+  const handleKeyDown = (e) => {
+    if (!showDropdown) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedIndex(prev =>
+          prev < filteredSkills.length - 1 ? prev + 1 : prev
+        );
+        break;
+
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedIndex(prev => (prev > 0 ? prev - 1 : -1));
+        break;
+
+      case 'Enter':
+        e.preventDefault();
+        if (selectedIndex >= 0 && filteredSkills[selectedIndex]) {
+          handleSelectSkill(filteredSkills[selectedIndex]);
+        } else if (filteredSkills.length === 1) {
+          handleSelectSkill(filteredSkills[0]);
+        }
+        break;
+
+      case 'Escape':
+        setShowDropdown(false);
+        setSelectedIndex(-1);
+        break;
+
+      default:
+        break;
+    }
+  };
+
+  
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -24,25 +125,33 @@ const EditProfile = ({ userData, onSave, onCancel }) => {
   };
 
   const addSkill = () => {
-    if (newSkill.trim()) {
+    // Check if entered skill exists in skillArray (case-insensitive)
+    const exactMatch = skillArray.find(
+      skill => skill.toLowerCase() === newSkill.toLowerCase()
+    );
+
+    if (exactMatch) {
       const skill = {
-        name: newSkill,
+        name: exactMatch,
         level: 'Beginner',
         score: 0,
         lastTested: null
+
       };
       setFormData(prev => ({
         ...prev,
         skills: [...prev.skills, skill]
       }));
       setNewSkill('');
+    } else {
+      alert('Please select a valid skill from the list');
     }
   };
 
   const removeSkill = (id) => {
     setFormData(prev => ({
       ...prev,
-      skills: prev.skills.filter(s => s.id !== id)
+      skills: prev.skills.filter(s => s._id !== id)
     }));
   };
 
@@ -181,13 +290,48 @@ const EditProfile = ({ userData, onSave, onCancel }) => {
             <h2 className="text-xl font-semibold mb-4">Skills Management</h2>
             
             <div className="flex gap-3 mb-4">
-              <input
-                type="text"
-                value={newSkill}
-                onChange={(e) => setNewSkill(e.target.value)}
-                placeholder="Skill name (e.g., JavaScript)"
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
+              <div className="flex-1 relative">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={newSkill}
+                  onChange={(e) => setNewSkill(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => newSkill && setShowDropdown(filteredSkills.length > 0)}
+                  placeholder="Skill name (e.g., JavaScript)"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  autoComplete="off"
+                />
+
+                {/* Dropdown */}
+                {showDropdown && filteredSkills.length > 0 && (
+                  <div
+                    ref={dropdownRef}
+                    className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                  >
+                    {filteredSkills.map((skill, index) => (
+                      <div
+                        key={skill}
+                        onClick={() => handleSelectSkill(skill)}
+                        className={`px-4 py-2 cursor-pointer transition-colors ${
+                          index === selectedIndex
+                            ? 'bg-blue-100 text-blue-900'
+                            : 'hover:bg-gray-100 text-gray-900'
+                        }`}
+                      >
+                        {skill}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* No results message */}
+                {newSkill && filteredSkills.length === 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-red-200 rounded-lg shadow-lg p-3 text-sm text-red-600">
+                    No matching skills found
+                  </div>
+                )}
+              </div>
               <button
                 onClick={addSkill}
                 className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
@@ -199,10 +343,10 @@ const EditProfile = ({ userData, onSave, onCancel }) => {
             
             <div className="space-y-2">
               {formData.skills.map(skill => (
-                <div key={skill.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={skill._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <span className="font-medium">{skill.name}</span>
                   <button
-                    onClick={() => removeSkill(skill.id)}
+                    onClick={() => removeSkill(skill._id)}
                     className="text-red-600 hover:text-red-700 transition"
                   >
                     <Trash2 size={18} />

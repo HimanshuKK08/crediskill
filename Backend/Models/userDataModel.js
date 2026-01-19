@@ -11,8 +11,7 @@ const skillSchema = new mongoose.Schema(
     score: { type: Number, default: 0 },
     lastTested: { type: Date },
     isTested: {type: Boolean, required: true, default: false}
-  },
-  { _id: false }
+  }
 );
 
 const projectSchema = new mongoose.Schema(

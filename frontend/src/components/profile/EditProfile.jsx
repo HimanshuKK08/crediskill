@@ -8,8 +8,7 @@ const EditProfile = ({ userData, onSave, onCancel }) => {
   const [skillArray, setskillArray] = useState([]);
   const [newProject, setNewProject] = useState({
     name: '',
-    depthScore: 50,
-    techStack: '',
+    githubURL: '',
     description: ''
   });
   
@@ -19,6 +18,7 @@ const EditProfile = ({ userData, onSave, onCancel }) => {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const dropdownRef = useRef(null);
   const inputRef = useRef(null);
+  const [detectedTech, setDetectedTech] = useState([]);
 
   useEffect(() => {
   const fetchSkills = async () => {
@@ -156,20 +156,23 @@ const EditProfile = ({ userData, onSave, onCancel }) => {
   };
 
   const addProject = () => {
-    if (newProject.name.trim()) {
-      const project = {
-        id: Date.now(),
-        name: newProject.name,
-        depthScore: parseInt(newProject.depthScore),
-        techStack: newProject.techStack.split(',').map(t => t.trim()).filter(t => t),
-        description: newProject.description
-      };
-      setFormData(prev => ({
-        ...prev,
-        projects: [...prev.projects, project]
-      }));
-      setNewProject({ name: '', depthScore: 50, techStack: '', description: '' });
+    const projectDetails = async()=>{
+      const data = await fetch('/api/projects/details',{
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          githubUrl: newProject.githubURL
+        })
+      });
+      const result = await data.json();
+      setDetectedTech(result.techStack);
+      console.log(result);
+      
     }
+    projectDetails();
+    
   };
 
   const removeProject = (id) => {
@@ -371,9 +374,9 @@ const EditProfile = ({ userData, onSave, onCancel }) => {
               
               <input
                 type="text"
-                value={newProject.techStack}
-                onChange={(e) => setNewProject(prev => ({ ...prev, techStack: e.target.value }))}
-                placeholder="Tech stack (comma-separated, e.g., React, Node.js, MongoDB)"
+                value={newProject.githubURL}
+                onChange={(e) => setNewProject(prev => ({ ...prev, githubURL: e.target.value }))}
+                placeholder="Enter Github URL for the Project"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
               
@@ -390,26 +393,28 @@ const EditProfile = ({ userData, onSave, onCancel }) => {
                 className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
               >
                 <Plus size={16} />
-                Add Project
+                Analyze Project
               </button>
             </div>
+
             
-            <div className="space-y-2">
-              {formData.projects.map(project => (
-                <div key={project.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div>
-                    <div className="font-medium">{project.name}</div>
-                    <div className="text-sm text-gray-500">{project.techStack.join(', ')}</div>
+            <div className="bg-gray-50 p-5">
+              <h1 className="font-semibold text-center w-full text-xl">{newProject.name}</h1><br/>
+              <div className="space-y-2 grid grid-cols-2 gap-2">
+                {detectedTech.map(skill => (
+                  <div key={skill._id} className="flex items-center justify-between p-3 bg-gray-200 rounded-lg">
+                    <span className="font-medium">{skill.name}</span>
+                    <button
+                      onClick={() => removeSkill(skill._id)}
+                      className="text-red-600 hover:text-red-700 transition"
+                    >
+                      <Trash2 size={18} />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => removeProject(project.id)}
-                    className="text-red-600 hover:text-red-700 transition"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
+
           </section>
         </div>
       </div>

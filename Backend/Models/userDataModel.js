@@ -17,11 +17,20 @@ const skillSchema = new mongoose.Schema(
 const projectSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
-    depthScore: { type: Number, default: 0 },
-    techStack: [{ type: String }],
+    githubURL: {type: String, required: true},
+    techStack: [
+      {
+        name: { type: String },
+        source: {
+          type: String,
+          enum: ['detected', 'manual'],
+          required: true
+        }
+      }
+    ],
     description: { type: String },
   },
-  { _id: false }
+  // { _id: false }
 );
 
 const growthSchema = new mongoose.Schema(

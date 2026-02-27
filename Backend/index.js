@@ -9,6 +9,7 @@ const userDataModel = require('./Models/userDataModel')
 const app = express(); 
 const getRandomQuestions = require('./utils/getRandomQuestions');
 const Questions = require("./Models/Questions");
+const axios = require("axios");
 
 /* -------------------- MIDDLEWARE -------------------- */
 const store = new MongoStore({
@@ -40,6 +41,40 @@ function isLoggedIn(req, res, next) {
 
 app.use(passport.initialize());
 app.use(passport.session());
+
+
+/* -------------------- Dummy Data -------------------- */
+const TECH_MAP = {
+  react: "React",
+  next: "Next.js",
+  vue: "Vue",
+  angular: "Angular",
+
+  express: "Node.js",
+  koa: "Node.js",
+  nestjs: "Node.js",
+
+  mongoose: "MongoDB",
+  sequelize: "SQL",
+  prisma: "ORM",
+
+  tailwindcss: "Tailwind",
+  bootstrap: "Bootstrap",
+
+  passport: "Authentication",
+  jsonwebtoken: "JWT",
+  bcrypt: "Security",
+
+  redux: "Redux",
+  axios: "API Handling",
+};
+
+
+
+
+
+
+
 /* -------------------- ROUTES -------------------- */
 
 app.post('/login',passport.authenticate('local'), (req, res, next) => {
@@ -212,6 +247,99 @@ app.post('/api/skill', async(req,res)=>{
   res.json(skills);
 })
 
+app.post("/api/projects/details", async (req, res) => {
+  const { githubUrl } = req.body;
+
+  if (!githubUrl) {
+    return res.status(400).json({
+      success: false,
+      message: "GitHub URL is required",
+    });
+  }
+
+  try {
+    // ---------- 1. PARSE GITHUB URL ----------
+    const match = githubUrl.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+    if (!match) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid GitHub URL",
+      });
+    }
+
+    const owner = match[1];
+    const repo = match[2];
+
+    const headers = {
+      Accept: "application/vnd.github+json",
+      Authorization: process.env.GITHUB_TOKEN
+        ? `Bearer ${process.env.GITHUB_TOKEN}`
+        : undefined,
+    };
+
+    const techSet = new Set();
+
+    // ---------- 2. FETCH LANGUAGES ----------
+    try {
+      const languagesRes = await axios.get(
+        `https://api.github.com/repos/${owner}/${repo}/languages`,
+        { headers }
+      );
+
+      Object.keys(languagesRes.data).forEach((lang) => {
+        techSet.add(lang);
+      });
+    } catch (_) {}
+
+    // ---------- 3. FETCH package.json ----------
+    let dependencies = {};
+    let devDependencies = {};
+
+    try {
+      const packageRes = await axios.get(
+        `https://api.github.com/repos/${owner}/${repo}/contents/package.json`,
+        { headers }
+      );
+
+      const decoded = Buffer.from(
+        packageRes.data.content,
+        "base64"
+      ).toString("utf-8");
+
+      const pkg = JSON.parse(decoded);
+      dependencies = pkg.dependencies || {};
+      devDependencies = pkg.devDependencies || {};
+    } catch (_) {}
+
+    // ---------- 4. DETECT TECH FROM DEPENDENCIES ----------
+    const allDeps = { ...dependencies, ...devDependencies };
+
+    Object.keys(allDeps).forEach((dep) => {
+      if (TECH_MAP[dep]) {
+        techSet.add(TECH_MAP[dep]);
+      }
+    });
+
+    // ---------- 5. FORMAT FINAL TECH STACK ----------
+    const techStack = Array.from(techSet).map((tech) => ({
+      name: tech,
+      source: "detected",
+    }));
+
+    // ---------- 6. SEND RESPONSE ----------
+    return res.json({
+      success: true,
+      techStack,
+    });
+  } catch (error) {
+    console.error("GitHub Analysis Error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to analyze repository",
+    });
+  }
+});
 
 
 
@@ -219,6 +347,11 @@ app.post('/api/skill', async(req,res)=>{
 
 
 
+
+
+
+
+//sample routes:
 
 app.get('/demo', ensureAuthenticated ,(req,res)=>{
    console.log(req.user);

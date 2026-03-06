@@ -26,7 +26,7 @@ const ProjectCard = ({ project }) => {
         
         {/* GitHub Link - using dummy URL for now */}
         <a 
-          href="https://github.com/username/repo" 
+          href={project.githubURL} 
           target="_blank" 
           rel="noopener noreferrer"
           className="px-3 py-1.5 items-center gap-2 flex bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs rounded-full font-medium transition-colors"
@@ -38,7 +38,7 @@ const ProjectCard = ({ project }) => {
        <p className="text-sm text-gray-600 mb-4">{project.description}</p>
       {/* Using dummy data for now - will use project.techStack when backend is ready */}
       <div className="flex flex-wrap gap-2 mb-3">
-        {dummyTechStack.map((tech, i) => (
+        {project.techStack.map((tech, i) => (
           <span 
             key={i} 
             className={`px-3 py-1 text-xs rounded-full font-medium transition-colors ${getChipStyle(tech.source)}`}

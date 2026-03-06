@@ -51,8 +51,8 @@ const ProfileDashboard = ({ userData, isOwner, onEditProfile }) => {
               </div>
             ) : (
               <div className="space-y-6">
-                {userData.projects.map(project => (
-                  <ProjectCard key={project.id} project={project} />
+                {userData.projects.map((project,i) => (
+                  <ProjectCard key={i} project={project} />
                 ))}
               </div>
             )}
